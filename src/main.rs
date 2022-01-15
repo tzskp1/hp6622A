@@ -13,13 +13,33 @@ fn create_port() -> Option<Box<dyn serialport::SerialPort>> {
     serialport::new(port.port_name, 115_200).timeout(Duration::from_millis(500)).open().ok()
 }
 
+fn query(port: &mut Box<dyn serialport::SerialPort>, q: &str) -> Option<String> {
+    let res = port.write((q.to_owned() + "\n").as_bytes()).ok()?;
+    let mut resp = String::new();
+    let mut buf = vec![0 as u8; 1000];
+    loop {
+        match port.read(&mut buf) {
+            Ok(size) => {
+                resp += &String::from_utf8(buf[0..size].to_vec())
+                    .unwrap_or("".to_string());
+                match resp.find(|x| x == '\n') {
+                    Some(_) => {
+                        break;
+                    },
+                    _ => ()
+                }
+            },
+            _ => {
+                break;
+            }
+        }
+    }
+    Some(resp)
+}
+
 fn main() {
     let mut port = create_port().expect("test");
-    let res = port.write("++ver\n".as_bytes()).expect("test");
-    let mut buf = String::new();
-    let res2 = port.read_to_string(&mut buf);
     println!("{:?}", port.name());
-    println!("{:?}", res);
-    println!("{:?}", res2);
-    println!("{:?}", buf);
+    println!("{:?}", query(&mut port, "++ver"));
+    // println!("{:?}", res2);
 }
